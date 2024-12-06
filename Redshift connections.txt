@@ -1,0 +1,159 @@
+
+-------------------------------------------------------------------------------------------------Azure SQL
+
+from awsglue.context import GlueContext
+from awsglue.job import Job
+from pyspark.context import SparkContext
+
+glueContext = GlueContext(SparkContext.getOrCreate())
+
+# Define the connection properties
+jdbc_url = "jdbc:sqlserver://utfabricpoc.database.windows.net:1433;databaseName=fabricdb"
+connection_properties = {
+    "user": "ut-admin",
+    "password": "UT2023#Tech",
+    "driver": "com.microsoft.sqlserver.jdbc.SQLServerDriver"
+}
+
+# Read from Azure SQL Database
+df = glueContext.read.format("jdbc") \
+    .option("url", jdbc_url) \
+    .option("dbtable", "AT.BLY035P") \
+    .option("user", connection_properties["user"]) \
+    .option("password", connection_properties["password"]) \
+    .option("driver", connection_properties["driver"]) \
+    .load()
+
+# Process or transform the data as needed
+df.show()
+
+-------------------------------------------------------------------------------------------------------S3
+
+from pyspark.context import SparkContext
+from awsglue.context import GlueContext
+
+# Initialize GlueContext
+sc = SparkContext.getOrCreate()
+glueContext = GlueContext(sc)
+spark = glueContext.spark_session
+
+# Read a CSV file from S3
+s3_path = "s3://awsus-rs-df-01/Aws_Orders.csv"
+df = spark.read.csv(s3_path, header=True, inferSchema=True)
+
+# Show the data
+df.show()
+
+-------------------------------------------------------------------------------------Redshift
+#from awsglue.context import GlueContext
+#from pyspark.context import SparkContext
+
+#sc = SparkContext()
+#glueContext = GlueContext(sc)
+
+
+from awsglue.context import GlueContext
+from pyspark.context import SparkContext
+
+# Use the pre-existing SparkContext and GlueContext
+sc = SparkContext.getOrCreate()
+glueContext = GlueContext(sc)
+
+# Your code here
+
+
+# Connection details
+redshift_url = "jdbc:redshift://redshift-cluster-1.c6rd2maxxv4z.us-east-1.redshift.amazonaws.com:5439/dev"
+redshift_user = "chowdar"
+redshift_password = "Chowda@254"
+
+# Read data from Redshift table
+df = glueContext.read.format("jdbc").option("url", redshift_url)\
+    .option("dbtable", "poc.aws_orders")\
+    .option("user", redshift_user)\
+    .option("password", redshift_password)\
+    .option("driver", "com.amazon.redshift.jdbc.Driver").load()
+
+# Show data
+df.show()
+--------------------------------------------------------------------------s3-to-redshift
+import boto3
+from awsglue.context import GlueContext
+from awsglue.transforms import *
+from pyspark.context import SparkContext
+
+# Initialize Glue Context
+sc = SparkContext.getOrCreate()
+glueContext = GlueContext(sc)
+spark = glueContext.spark_session
+logger = glueContext.get_logger()
+
+# Configuration: Update with your details
+s3_path = "s3://awseu-rs-dev-s3-01/Aws_Orders.csv"
+redshift_temp_dir = "s3://awseu-rs-dev-s3-01/temp-dir/"
+redshift_db_name = "dev"
+redshift_table_name = "poc.aws_orders"
+redshift_conn_name = "Redshift connection-1"
+
+# Read data from S3
+logger.info("Reading data from S3...")
+df = spark.read.format("csv").option("header", "true").load(s3_path)
+
+# Transformations (if any)
+# For example, df = df.withColumn("new_col", df["existing_col"] + 1)
+
+# Write data to Redshift
+logger.info("Writing data to Redshift...")
+df.write \
+    .format("jdbc") \
+    .option("url", f"jdbc:redshift://redshift-cluster-1.c6rd2maxxv4z.us-east-1.redshift.amazonaws.com:5439/dev") \
+    .option("dbtable", redshift_table_name) \
+    .option("user", "chowdar") \
+    .option("password", "Chowda@254") \
+    .option("tempdir", redshift_temp_dir) \
+    .mode("append") \
+    .save()
+
+logger.info("Data successfully written to Redshift.")
+-----------------------------------------------------------------------------------------------------SQL-to-Redshift
+from awsglue.context import GlueContext
+from awsglue.job import Job
+from pyspark.context import SparkContext
+
+glueContext = GlueContext(SparkContext.getOrCreate())
+
+redshift_temp_dir = "s3://awseu-rs-dev-s3-01/temp-dir/"
+redshift_db_name = "dev"
+redshift_table_name = "poc.BLY035P"
+redshift_conn_name = "Redshift connection-1"
+
+# Define the connection properties
+jdbc_url = "jdbc:sqlserver://utfabricpoc.database.windows.net:1433;databaseName=fabricdb"
+connection_properties = {
+    "user": "ut-admin",
+    "password": "UT2023#Tech",
+    "driver": "com.microsoft.sqlserver.jdbc.SQLServerDriver"
+}
+
+# Read from Azure SQL Database
+df = glueContext.read.format("jdbc") \
+    .option("url", jdbc_url) \
+    .option("dbtable", "AT.BLY035P") \
+    .option("user", connection_properties["user"]) \
+    .option("password", connection_properties["password"]) \
+    .option("driver", connection_properties["driver"]) \
+    .load()
+
+# Process or transform the data as needed
+logger.info("Writing data to Redshift...")
+df.write \
+    .format("jdbc") \
+    .option("url", f"jdbc:redshift://redshift-cluster-1.c6rd2maxxv4z.us-east-1.redshift.amazonaws.com:5439/dev") \
+    .option("dbtable", redshift_table_name) \
+    .option("user", "chowdar") \
+    .option("password", "Chowda@254") \
+    .option("tempdir", redshift_temp_dir) \
+    .mode("append") \
+    .save()
+
+logger.info("Data successfully written to Redshift.")
